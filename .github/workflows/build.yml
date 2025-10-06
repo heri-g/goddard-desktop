@@ -1,0 +1,72 @@
+name: Build Goddard
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      
+      - name: Install frontend dependencies
+        run: npm install
+      
+      - name: Build
+        run: npm run tauri build
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install frontend dependencies
+        run: npm install
+      
+      - name: Build
+        run: npm run tauri build -- --bundles app
+      
+      - name: Create DMG
+        run: |
+          mkdir -p /tmp/goddard-dmg
+          cp -R src-tauri/target/release/bundle/macos/Goddard.app /tmp/goddard-dmg/
+          ln -s /Applications /tmp/goddard-dmg/Applications
+          hdiutil create -volname "Goddard" -srcfolder /tmp/goddard-dmg -ov -format UDZO Goddard-Installer.dmg
+          rm -rf /tmp/goddard-dmg
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: Goddard-Installer.dmg
