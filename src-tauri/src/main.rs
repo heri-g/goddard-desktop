@@ -95,16 +95,21 @@ fn create_shadcn_project(project_name: String, project_path: String) -> Result<S
     copy_dir_recursive(&seed_path, &full_project_path)
         .map_err(|e| format!("Failed to copy seed template: {}", e))?;
 
-    // Step 2: Update package.json with new project name
+    // Step 2: Update package.json with new project name (lowercase for npm)
     let package_json_path = full_project_path.join("package.json");
     if package_json_path.exists() {
         let content = fs::read_to_string(&package_json_path)
             .map_err(|e| format!("Failed to read package.json: {}", e))?;
         
+        // Convert project name to lowercase and replace spaces/special chars with hyphens
+        let npm_safe_name = project_name
+            .to_lowercase()
+            .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-");
+        
         // Replace the name in package.json
         let updated_content = content.replace(
             r#""name": "seed""#,
-            &format!(r#""name": "{}""#, project_name)
+            &format!(r#""name": "{}""#, npm_safe_name)
         );
         
         fs::write(&package_json_path, updated_content)
